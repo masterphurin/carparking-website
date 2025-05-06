@@ -29,7 +29,7 @@
 ?>
 
 <?php
-$pdo = new PDO("mysql:host=localhost;dbname=parking", "root", "");
+$pdo = new PDO("mysql:host=192.168.1.138;dbname=parking", "pooh", "");
 
 require 'vendor/autoload.php';
 
@@ -45,7 +45,7 @@ if (isset($_GET['fetch'])) {
         echo json_encode(['status' => 'no_data', 'message' => 'ยินดีต้อนรับ']);
     } else {
         $card_id = $card['card_id'];
-        $url = "http://localhost/parking/view.php?card_id=$card_id";
+        $url = "http://192.168.1.144/view.php?card_id=$card_id";
 
         $result = Builder::create()
             ->data($url)

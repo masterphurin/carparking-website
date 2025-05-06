@@ -1,6 +1,6 @@
 <?php
 date_default_timezone_set('Asia/Bangkok');
-$pdo = new PDO("mysql:host=localhost;dbname=parking", "root", "");
+$pdo = new PDO("mysql:host=192.168.1.138;dbname=parking", "pooh", "");
 
 // จัดการการกดปุ่ม (ลบข้อมูล)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['card_id'])) {
@@ -36,7 +36,7 @@ if (isset($_GET['card_id'])) {
         $free_until_timestamp = $free_until->getTimestamp() * 1000;
 
         // อัปเดต QR สแกนแล้ว
-        $stmt_update = $pdo->prepare("UPDATE parking_cards SET is_qrscan = 1 WHERE card_id = ?");
+        $stmt_update = $pdo->prepare("UPDATE parking_cards SET is_qrscan = 1, is_ready = 1 WHERE card_id = ?");
         $stmt_update->execute([$card_id]);
 
         // แสดงข้อมูล
