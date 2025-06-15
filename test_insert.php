@@ -1,5 +1,5 @@
 <?php
-$pdo = new PDO("mysql:host=localhost;dbname=parking", "root", ""); 
+$pdo = new PDO("mysql:host=192.168.1.138;dbname=parking", "pooh", "");
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
     $stmt = $pdo->query("SELECT slot_number FROM parking_slots WHERE is_occupied = 0 ORDER BY RAND() LIMIT 1");

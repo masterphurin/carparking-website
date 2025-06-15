@@ -1,5 +1,39 @@
 <?php
+<<<<<<< HEAD
 $pdo = new PDO("mysql:host=localhost;dbname=parking", "root", "");
+=======
+// $pdo = new PDO("mysql:host=localhost;dbname=parking", "root", "");
+
+// require 'vendor/autoload.php';
+
+// use Endroid\QrCode\Builder\Builder;
+// use Endroid\QrCode\Encoding\Encoding;
+// use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelHigh;
+
+// $stmt = $pdo->query("SELECT * FROM parking_cards WHERE is_qrscan = 0 ORDER BY id ASC LIMIT 1");
+// $card = $stmt->fetch();
+
+// if (!$card) {
+//     echo "❌ ไม่มีบัตรที่ต้องการสร้าง QR Code";
+//     exit;
+// }
+
+// $card_id = $card['card_id'];
+// $url = "http://localhost/parking/view.php?card_id=$card_id";
+
+// $result = Builder::create()
+//     ->data($url)
+//     ->encoding(new Encoding('UTF-8'))
+//     ->errorCorrectionLevel(new ErrorCorrectionLevelHigh())
+//     ->build();
+
+// header('Content-Type: image/png');
+// echo $result->getString();
+?>
+
+<?php
+$pdo = new PDO("mysql:host=192.168.1.138;dbname=parking", "pooh", "");
+>>>>>>> 520ccaedf07bc74598b9e4bbe6f22b2eef7e7a87
 
 require 'vendor/autoload.php';
 
@@ -15,7 +49,7 @@ if (isset($_GET['fetch'])) {
         echo json_encode(['status' => 'no_data', 'message' => 'ยินดีต้อนรับ']);
     } else {
         $card_id = $card['card_id'];
-        $url = "http://localhost/parking/view.php?card_id=$card_id";
+        $url = "http://192.168.1.144/view.php?card_id=$card_id";
 
         $result = Builder::create()
             ->data($url)
