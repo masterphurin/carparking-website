@@ -1,54 +1,49 @@
 <?php
-date_default_timezone_set('Asia/Bangkok');
-$pdo = new PDO("mysql:host=192.168.1.138;dbname=parking", "pooh", "");
+/**
+ * ระบบจอดรถอัจฉริยะ - หน้าดูข้อมูล
+ * Smart Parking System - View Page
+ */
+
+require_once __DIR__ . '/services/ParkingService.php';
+
+$parkingService = new ParkingService();
 
 // จัดการการกดปุ่ม (ลบข้อมูล)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['card_id'])) {
     $card_id = $_POST['card_id'];
-
-    // ลบข้อมูลจากตาราง parking_cards
-    $stmt = $pdo->prepare("DELETE FROM parking_cards WHERE card_id = ?");
-    $stmt->execute([$card_id]);
     
-    // แสดงหน้าสำเร็จ
-    $show_success = true;
+    try {
+        $parkingService->deleteCard($card_id);
+        $show_success = true;
+    } catch (Exception $e) {
+        $error_message = $e->getMessage();
+        $show_success = false;
+    }
 } else {
     $show_success = false;
 }
 
 // ตรวจสอบ card_id
 $card = null;
-$entry_time = null;
-$now = null;
-$interval = null;
-$hours = 0;
-$chargeable_hours = 0;
-$total_price = 0;
-$free_until_timestamp = 0;
+$parking_data = null;
 
 if (isset($_GET['card_id']) && !$show_success) {
     $card_id = $_GET['card_id'];
-    $stmt = $pdo->prepare("SELECT * FROM parking_cards WHERE card_id = ?");
-    $stmt->execute([$card_id]);
-    $card = $stmt->fetch();
+    
+    try {
+        $card = $parkingService->getCardById($card_id);
+        
+        if ($card) {
+            $parking_data = $parkingService->calculateParkingFee($card['entry_time']);
+            
+            // อัปเดต QR สแกนแล้ว
+            $parkingService->updateQRScanStatus($card_id);
 
-    if ($card) {
-        $entry_time = new DateTime($card['entry_time']);
-        $now = new DateTime();
-        $now->setTimezone(new DateTimeZone('Asia/Bangkok'));
-
-        $interval = $entry_time->diff($now);
-        $hours = $interval->days * 24 + $interval->h + ($interval->i > 0 ? 1 : 0);
-        $chargeable_hours = max(0, $hours - 3);
-        $total_price = $chargeable_hours * 20; // เปลี่ยนจาก 30 เป็น 20 ตามไฟล์ที่ตกแต่ง
-
-        $free_until = clone $entry_time;
-        $free_until->modify('+3 hours');
-        $free_until_timestamp = $free_until->getTimestamp() * 1000;
-
-        // อัปเดต QR สแกนแล้ว
-        $stmt_update = $pdo->prepare("UPDATE parking_cards SET is_qrscan = 1, is_ready = 1 WHERE card_id = ?");
-        $stmt_update->execute([$card_id]);
+            // อัปเดตสถานะช่องจอดรถ
+            $parkingService->updateSlotStatus($card_id);
+        }
+    } catch (Exception $e) {
+        $error_message = $e->getMessage();
     }
 }
 ?>
@@ -136,14 +131,14 @@ if (isset($_GET['card_id']) && !$show_success) {
                                 <div class="border-b border-gray-200 py-4 info-row">
                                     <p class="text-gray-500 text-sm">เวลาเข้า</p>
                                     <p class="text-gray-800 font-medium text-lg">
-                                        <?php echo $entry_time->format('d/m/Y H:i:s'); ?>
+                                        <?php echo $parking_data['entry_time']->format('d/m/Y H:i:s'); ?>
                                     </p>
                                 </div>
                                 
                                 <div class="border-b border-gray-200 py-4 info-row">
                                     <p class="text-gray-500 text-sm">เวลาปัจจุบัน</p>
                                     <p class="text-gray-800 font-medium text-lg" id="current-time">
-                                        <?php echo $now->format('d/m/Y H:i:s'); ?>
+                                        <?php echo $parking_data['current_time']->format('d/m/Y H:i:s'); ?>
                                     </p>
                                 </div>
                                 
@@ -151,8 +146,8 @@ if (isset($_GET['card_id']) && !$show_success) {
                                     <p class="text-gray-500 text-sm">ระยะเวลาจอด</p>
                                     <p class="text-gray-800 font-medium text-lg">
                                         <?php 
-                                        $display_hours = $interval->h + ($interval->days * 24);
-                                        $minutes = $interval->i;
+                                        $display_hours = $parking_data['interval']->h + ($parking_data['interval']->days * 24);
+                                        $minutes = $parking_data['interval']->i;
                                         echo "$display_hours ชั่วโมง $minutes นาที";
                                         ?>
                                     </p>
@@ -167,13 +162,13 @@ if (isset($_GET['card_id']) && !$show_success) {
                                 
                                 <div class="border-b border-gray-200 py-4 info-row">
                                     <p class="text-gray-500 text-sm">จอดรวม</p>
-                                    <p class="text-gray-800 font-medium text-lg"><?php echo $hours; ?> ชั่วโมง</p>
+                                    <p class="text-gray-800 font-medium text-lg"><?php echo $parking_data['total_hours']; ?> ชั่วโมง</p>
                                 </div>
                                 
                                 <div class="border-b border-gray-200 py-4 info-row">
                                     <p class="text-gray-500 text-sm">ค่าบริการทั้งหมด</p>
                                     <p class="text-blue-600 font-bold text-2xl">
-                                        <?php echo number_format($total_price); ?> บาท
+                                        <?php echo number_format($parking_data['total_price']); ?> บาท
                                     </p>
                                 </div>
                                 
@@ -231,7 +226,7 @@ if (isset($_GET['card_id']) && !$show_success) {
     <script>
         <?php if ($card && !$show_success): ?>
         // Countdown functionality
-        const freeUntil = new Date(<?php echo $free_until_timestamp; ?>);
+        const freeUntil = new Date(<?php echo $parking_data['free_until_timestamp']; ?>);
         const countdownEl = document.getElementById('countdown');
         const gateBtn = document.getElementById('button-text');
 

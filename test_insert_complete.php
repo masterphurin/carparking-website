@@ -14,10 +14,10 @@ try {
     $stmt = $pdo->query("SELECT COUNT(*) as total FROM parking_cards");
     $stats['total_cards'] = $stmt->fetch()['total'];
     
-    $stmt = $pdo->query("SELECT COUNT(*) as active FROM parking_cards WHERE is_paid = 0");
+    $stmt = $pdo->query("SELECT COUNT(*) as active FROM parking_cards WHERE exit_time IS NULL");
     $stats['active_cards'] = $stmt->fetch()['active'];
     
-    $stmt = $pdo->query("SELECT COUNT(*) as completed FROM parking_cards WHERE is_paid = 1");
+    $stmt = $pdo->query("SELECT COUNT(*) as completed FROM parking_cards WHERE exit_time IS NOT NULL");
     $stats['completed_cards'] = $stmt->fetch()['completed'];
     
     $stmt = $pdo->query("SELECT COUNT(*) as scanned FROM parking_cards WHERE is_qrscan = 1");
@@ -140,13 +140,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
         } elseif (isset($_POST['simulate_exit_now']) && isset($_POST['card_id'])) {
-            // จำลองการออก (ใช้ is_paid = 1 แทน exit_time)
+            // จำลองการออกขณะนี้
             $card_id = $_POST['card_id'];
+            $exit_time = date('Y-m-d H:i:s');
             
-            $stmt = $pdo->prepare("UPDATE parking_cards SET is_paid = 1 WHERE card_id = ?");
-            $stmt->execute([$card_id]);
+            $stmt = $pdo->prepare("UPDATE parking_cards SET exit_time = ? WHERE card_id = ?");
+            $stmt->execute([$exit_time, $card_id]);
             
-            $result_message = "<div class='alert alert-info'>🚗 จำลองการออกสำเร็จ (เปลี่ยนสถานะเป็นจ่ายแล้ว)<br>Card ID: " . substr($card_id, 0, 12) . "...</div>";
+            $result_message = "<div class='alert alert-info'>🚗 จำลองการออกสำเร็จ<br>Card ID: " . substr($card_id, 0, 12) . "...<br>เวลาออก: $exit_time</div>";
             
         } elseif (isset($_POST['simulate_time_scenarios'])) {
             // สร้างสถานการณ์ทดสอบหลายแบบ
@@ -707,7 +708,7 @@ try {
                         <select name="card_id" required>
                             <option value="">เลือกบัตรจอดรถ...</option>
                             <?php foreach ($recent_cards as $card): ?>
-                                <?php if (!$card['is_paid']): ?>
+                                <?php if (!$card['exit_time']): ?>
                                 <option value="<?php echo $card['card_id']; ?>">
                                     <?php echo substr($card['card_id'], 0, 12); ?>... - <?php echo $card['license_plate']; ?>
                                 </option>
@@ -834,6 +835,7 @@ try {
                                 <th>ทะเบียนรถ</th>
                                 <th>ช่องจอด</th>
                                 <th>เวลาเข้า</th>
+                                <th>เวลาออก</th>
                                 <th>ระยะเวลาจอด</th>
                                 <th>ค่าจอดรถ</th>
                                 <th>สถานะ</th>
@@ -848,12 +850,13 @@ try {
                                 <td><?php echo htmlspecialchars($card['license_plate']); ?></td>
                                 <td><?php echo $card['slot_number']; ?></td>
                                 <td><?php echo date('d/m/Y H:i', strtotime($card['entry_time'])); ?></td>
+                                <td><?php echo $card['exit_time'] ? date('d/m/Y H:i', strtotime($card['exit_time'])) : '-'; ?></td>
                                 <td>
                                     <?php
                                     if ($card['entry_time']) {
                                         $entry = new DateTime($card['entry_time']);
-                                        $now = new DateTime(); // ใช้เวลาปัจจุบันในการคำนวณ
-                                        $interval = $entry->diff($now);
+                                        $exit = $card['exit_time'] ? new DateTime($card['exit_time']) : new DateTime();
+                                        $interval = $entry->diff($exit);
                                         $total_hours = $interval->h + ($interval->days * 24);
                                         $minutes = $interval->i;
                                         
@@ -871,8 +874,8 @@ try {
                                     <?php
                                     if ($card['entry_time']) {
                                         $entry = new DateTime($card['entry_time']);
-                                        $now = new DateTime(); // ใช้เวลาปัจจุบันในการคำนวณ
-                                        $interval = $entry->diff($now);
+                                        $exit = $card['exit_time'] ? new DateTime($card['exit_time']) : new DateTime();
+                                        $interval = $entry->diff($exit);
                                         $total_hours = $interval->h + ($interval->days * 24);
                                         $minutes = $interval->i;
                                         
@@ -894,8 +897,8 @@ try {
                                     ?>
                                 </td>
                                 <td>
-                                    <?php if ($card['is_paid']): ?>
-                                        <span class="badge badge-info">จ่ายแล้ว</span>
+                                    <?php if ($card['exit_time']): ?>
+                                        <span class="badge badge-info">ออกแล้ว</span>
                                     <?php elseif ($card['is_qrscan']): ?>
                                         <span class="badge badge-success">สแกนแล้ว</span>
                                     <?php else: ?>

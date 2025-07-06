@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ JavaScript API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">ทดสอบ JavaScript API</h1>
+        
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <button id="testBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                ทดสอบ API
+            </button>
+            <button id="testDirectBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-4">
+                ทดสอบ API โดยตรง
+            </button>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">ผลลัพธ์:</h2>
+            <div id="result" class="bg-gray-50 p-4 rounded border">
+                คลิกปุ่มเพื่อทดสอบ
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6 mt-6">
+            <h2 class="text-xl font-semibold mb-4">QR Code Preview:</h2>
+            <div id="qrPreview" class="text-center">
+                ยังไม่มี QR Code
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('testBtn').addEventListener('click', function() {
+            const resultDiv = document.getElementById('result');
+            const qrPreview = document.getElementById('qrPreview');
+            
+            resultDiv.innerHTML = '<div class="text-blue-600">กำลังทดสอบ...</div>';
+            
+            console.log('Testing API...');
+            
+            fetch('index.php?fetch=1')
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    return response.text(); // Get as text first
+                })
+                .then(text => {
+                    console.log('Raw response:', text);
+                    
+                    try {
+                        const data = JSON.parse(text);
+                        console.log('Parsed data:', data);
+                        
+                        resultDiv.innerHTML = `
+                            <div class="text-green-600">✅ สำเร็จ!</div>
+                            <pre class="mt-2 text-sm bg-gray-100 p-2 rounded">${JSON.stringify(data, null, 2)}</pre>
+                        `;
+                        
+                        if (data.status === 'success' && data.qr_code) {
+                            qrPreview.innerHTML = `
+                                <img src="data:image/png;base64,${data.qr_code}" alt="QR Code" class="mx-auto border-2 border-gray-300 rounded">
+                                <p class="mt-2 text-sm text-gray-600">Card ID: ${data.card_id}</p>
+                            `;
+                        }
+                        
+                    } catch (parseError) {
+                        console.error('JSON parse error:', parseError);
+                        resultDiv.innerHTML = `
+                            <div class="text-red-600">❌ JSON Parse Error</div>
+                            <div class="mt-2 text-sm">Raw response: ${text}</div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    resultDiv.innerHTML = `
+                        <div class="text-red-600">❌ เกิดข้อผิดพลาด</div>
+                        <div class="mt-2 text-sm">${error.message}</div>
+                    `;
+                });
+        });
+        
+        document.getElementById('testDirectBtn').addEventListener('click', function() {
+            const resultDiv = document.getElementById('result');
+            const qrPreview = document.getElementById('qrPreview');
+            
+            resultDiv.innerHTML = '<div class="text-blue-600">กำลังทดสอบ API โดยตรง...</div>';
+            
+            fetch('test-api.php')
+                .then(response => response.text())
+                .then(text => {
+                    console.log('Direct API response:', text);
+                    
+                    try {
+                        const data = JSON.parse(text);
+                        
+                        resultDiv.innerHTML = `
+                            <div class="text-green-600">✅ API โดยตรงสำเร็จ!</div>
+                            <pre class="mt-2 text-sm bg-gray-100 p-2 rounded">${JSON.stringify(data, null, 2)}</pre>
+                        `;
+                        
+                        if (data.status === 'success' && data.qr_code) {
+                            qrPreview.innerHTML = `
+                                <img src="data:image/png;base64,${data.qr_code}" alt="QR Code" class="mx-auto border-2 border-gray-300 rounded">
+                                <p class="mt-2 text-sm text-gray-600">Card ID: ${data.card_id}</p>
+                            `;
+                        }
+                        
+                    } catch (parseError) {
+                        resultDiv.innerHTML = `
+                            <div class="text-red-600">❌ JSON Parse Error</div>
+                            <div class="mt-2 text-sm">Raw response: ${text}</div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Direct API error:', error);
+                    resultDiv.innerHTML = `
+                        <div class="text-red-600">❌ เกิดข้อผิดพลาด</div>
+                        <div class="mt-2 text-sm">${error.message}</div>
+                    `;
+                });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ QR Code - Simple</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-8">ทดสอบ QR Code</h1>
+        
+        <div class="max-w-md mx-auto">
+            <div id="content" class="bg-white rounded-lg shadow p-6 text-center">
+                <div class="text-blue-600 mb-4">กำลังโหลด QR Code...</div>
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            </div>
+        </div>
+        
+        <div class="mt-8 text-center">
+            <button id="manualTest" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                ทดสอบ Manual
+            </button>
+        </div>
+        
+        <div class="mt-8 bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold mb-4">Debug Info:</h2>
+            <div id="debugInfo" class="text-sm bg-gray-100 p-4 rounded">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Debug info
+        function updateDebugInfo(message) {
+            const debugDiv = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            debugDiv.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+        }
+        
+        // Fetch QR Code
+        function fetchQRCode() {
+            updateDebugInfo('Starting fetchQRCode...');
+            console.log('Fetching QR Code...');
+            
+            const url = 'index.php?fetch=1';
+            updateDebugInfo(`Making request to: ${url}`);
+            
+            fetch(url)
+                .then(response => {
+                    updateDebugInfo(`Response status: ${response.status}`);
+                    updateDebugInfo(`Response headers: ${JSON.stringify([...response.headers])}`);
+                    console.log('Response received:', response);
+                    
+                    if (!response.ok) {
+                        throw new Error('HTTP error! status: ' + response.status);
+                    }
+                    
+                    return response.text(); // Get as text first to see what we get
+                })
+                .then(text => {
+                    updateDebugInfo(`Raw response: ${text.substring(0, 200)}...`);
+                    console.log('Raw response:', text);
+                    
+                    try {
+                        const data = JSON.parse(text);
+                        updateDebugInfo(`Parsed JSON successfully: ${data.status}`);
+                        console.log('Data received:', data);
+                        
+                        const container = document.getElementById('content');
+                        if (data.status === 'no_data') {
+                            container.innerHTML = `
+                                <div class="py-8">
+                                    <div class="text-blue-600 text-xl font-bold">${data.message}</div>
+                                    <p class="text-gray-600 mt-3">ระบบพร้อมให้บริการ</p>
+                                </div>
+                            `;
+                        } else if (data.status === 'success') {
+                            container.innerHTML = `
+                                <div class="py-4">
+                                    <h2 class="text-xl font-bold text-gray-800 mb-4">สแกนเพื่อเข้าสู่ระบบ</h2>
+                                    <div class="border-2 border-blue-600 inline-block p-3 rounded-lg bg-white">
+                                        <img class="w-48 h-48" src="data:image/png;base64,${data.qr_code}" alt="QR Code">
+                                    </div>
+                                    <p class="text-gray-600 mt-4">Card ID: ${data.card_id}</p>
+                                </div>
+                            `;
+                            updateDebugInfo(`QR Code displayed successfully for card: ${data.card_id}`);
+                        } else if (data.status === 'error') {
+                            container.innerHTML = `
+                                <div class="py-8">
+                                    <div class="text-red-600 text-xl font-bold">เกิดข้อผิดพลาด</div>
+                                    <p class="text-gray-600 mt-3">${data.message}</p>
+                                </div>
+                            `;
+                            updateDebugInfo(`Error: ${data.message}`);
+                        }
+                    } catch (parseError) {
+                        updateDebugInfo(`JSON parse error: ${parseError.message}`);
+                        console.error('JSON parse error:', parseError);
+                        
+                        const container = document.getElementById('content');
+                        container.innerHTML = `
+                            <div class="py-8">
+                                <div class="text-red-600 text-xl font-bold">JSON Parse Error</div>
+                                <p class="text-gray-600 mt-3">Raw response: ${text.substring(0, 100)}...</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    updateDebugInfo(`Fetch error: ${error.message}`);
+                    console.error('Error fetching QR Code:', error);
+                    
+                    const container = document.getElementById('content');
+                    container.innerHTML = `
+                        <div class="py-8">
+                            <div class="text-red-600 text-xl font-bold">เกิดข้อผิดพลาด</div>
+                            <p class="text-gray-600 mt-3">ไม่สามารถเชื่อมต่อกับระบบได้: ${error.message}</p>
+                        </div>
+                    `;
+                });
+        }
+
+        // Manual test button
+        document.getElementById('manualTest').addEventListener('click', function() {
+            updateDebugInfo('Manual test button clicked');
+            fetchQRCode();
+        });
+
+        // Start fetching
+        updateDebugInfo('Page loaded, starting initial fetch...');
+        fetchQRCode();
+        
+        // Set interval for auto-refresh
+        setInterval(fetchQRCode, 5000);
+    </script>
+</body>
+</html>

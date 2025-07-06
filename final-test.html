@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ Final</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            color: black;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .qr-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .qr-container img {
+            max-width: 300px;
+            border: 3px solid #1a237e;
+            border-radius: 10px;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .loading { background-color: #cce5ff; color: #0056b3; }
+        
+        button {
+            background-color: #1a237e;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background-color: #283593;
+        }
+        
+        .debug {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚗 ทดสอบ QR Code Final</h1>
+        
+        <div class="qr-container">
+            <div id="qr-content">
+                <div class="status loading">กำลังโหลด QR Code...</div>
+            </div>
+        </div>
+        
+        <div style="text-align: center;">
+            <button onclick="testQR()">🔄 รีเฟรช QR Code</button>
+            <button onclick="testDirect()">🧪 ทดสอบ API โดยตรง</button>
+            <button onclick="clearDebug()">🧹 ล้าง Debug</button>
+        </div>
+        
+        <div class="debug" id="debug-log">
+            <strong>Debug Log:</strong><br>
+            <span id="debug-content">เริ่มต้นระบบ...<br></span>
+        </div>
+    </div>
+
+    <script>
+        let debugContent = '';
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugContent += `[${timestamp}] ${message}<br>`;
+            document.getElementById('debug-content').innerHTML = debugContent;
+            console.log(message);
+        }
+        
+        function clearDebug() {
+            debugContent = '';
+            document.getElementById('debug-content').innerHTML = 'Debug log cleared...<br>';
+        }
+        
+        function testQR() {
+            log('🔄 เริ่มทดสอบ QR Code...');
+            
+            const qrContent = document.getElementById('qr-content');
+            qrContent.innerHTML = '<div class="status loading">กำลังโหลด...</div>';
+            
+            fetch('index.php?fetch=1')
+                .then(response => {
+                    log(`📡 Response Status: ${response.status}`);
+                    log(`📡 Response OK: ${response.ok}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    return response.text();
+                })
+                .then(text => {
+                    log(`📝 Raw Response Length: ${text.length}`);
+                    log(`📝 First 100 chars: ${text.substring(0, 100)}`);
+                    
+                    const data = JSON.parse(text);
+                    log(`✅ JSON Parsed: ${data.status}`);
+                    
+                    if (data.status === 'success') {
+                        qrContent.innerHTML = `
+                            <div class="status success">✅ QR Code สร้างสำเร็จ!</div>
+                            <img src="data:image/png;base64,${data.qr_code}" alt="QR Code">
+                            <p><strong>Card ID:</strong> ${data.card_id}</p>
+                        `;
+                        log(`🎉 QR Code displayed for card: ${data.card_id}`);
+                    } else if (data.status === 'no_data') {
+                        qrContent.innerHTML = `
+                            <div class="status success">ℹ️ ${data.message}</div>
+                            <p>ไม่มีบัตรที่ต้องการแสดง QR Code</p>
+                        `;
+                        log('ℹ️ No data available');
+                    } else if (data.status === 'error') {
+                        qrContent.innerHTML = `
+                            <div class="status error">❌ เกิดข้อผิดพลาด</div>
+                            <p>${data.message}</p>
+                        `;
+                        log(`❌ API Error: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    log(`🔥 Error: ${error.message}`);
+                    qrContent.innerHTML = `
+                        <div class="status error">❌ เกิดข้อผิดพลาด</div>
+                        <p>${error.message}</p>
+                    `;
+                });
+        }
+        
+        function testDirect() {
+            log('🧪 ทดสอบ API โดยตรง...');
+            
+            fetch('test-api.php')
+                .then(response => response.text())
+                .then(text => {
+                    log(`📝 Direct API Response: ${text.substring(0, 200)}...`);
+                    const data = JSON.parse(text);
+                    
+                    if (data.status === 'success') {
+                        log('✅ Direct API working correctly');
+                        document.getElementById('qr-content').innerHTML = `
+                            <div class="status success">✅ Direct API Test Success!</div>
+                            <img src="data:image/png;base64,${data.qr_code}" alt="QR Code">
+                            <p><strong>Card ID:</strong> ${data.card_id}</p>
+                        `;
+                    } else {
+                        log(`⚠️ Direct API returned: ${data.status}`);
+                    }
+                })
+                .catch(error => {
+                    log(`🔥 Direct API Error: ${error.message}`);
+                });
+        }
+        
+        // Auto-start
+        log('🚀 หน้าโหลดเสร็จแล้ว');
+        testQR();
+        
+        // Auto-refresh every 10 seconds
+        setInterval(testQR, 10000);
+    </script>
+</body>
+</html>
